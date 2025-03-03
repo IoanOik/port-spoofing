@@ -1,0 +1,13 @@
+#!/usr/sbin/nft -f
+
+# flush ruleset;
+
+table ip custom_table {
+    chain inbound {
+        type filter hook input priority 0; policy accept;
+
+        # Drop TCP SYN packets to X.X.X.X, except on ports 22, 80, 443
+        ip daddr X.X.X.X tcp flags & (syn | ack) == syn tcp dport != { 22, 80, 443 }  drop
+    }
+}
+
