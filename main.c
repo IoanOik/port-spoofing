@@ -179,6 +179,7 @@ void process_packet(uint8_t *args, const struct pcap_pkthdr *pkt_info, const uin
     struct libnet_tcp_hdr *TCPhdr;
     uint32_t data_len;
     libnet_t *context;
+    static libnet_ptag_t ip_ptag = 0, tcp_ptag = 0;
     struct libnet_stats statistics;
 
     IPhdr = (struct libnet_ipv4_hdr *)(bytes + LIBNET_ETH_H);
@@ -186,35 +187,35 @@ void process_packet(uint8_t *args, const struct pcap_pkthdr *pkt_info, const uin
     data_len = ntohs(IPhdr->ip_len) - IP_HL(IPhdr) * 4 - TCP_HL(TCPhdr) * 4;
     context = (libnet_t *)args;
 
-    libnet_build_tcp(ntohs(TCPhdr->th_dport),              // source port
-                     ntohs(TCPhdr->th_sport),              // destination port
-                     libnet_get_prand(LIBNET_PR32),        // sequence number
-                     ntohl(TCPhdr->th_seq) + data_len + 1, // ack number
-                     TH_ACK | TH_SYN,                      // FLAGS
-                     64240,                                // window size
-                     0,                                    // checksum
-                     0,                                    // urgent pointer
-                     LIBNET_TCP_H,                         // TCP packet length
-                     NULL,                                 // payload
-                     0,                                    // payload length
-                     context,                              // libnet context
-                     0                                     // ptag
+    tcp_ptag = libnet_build_tcp(ntohs(TCPhdr->th_dport),              // source port
+                                ntohs(TCPhdr->th_sport),              // destination port
+                                libnet_get_prand(LIBNET_PR32),        // sequence number
+                                ntohl(TCPhdr->th_seq) + data_len + 1, // ack number
+                                TH_ACK | TH_SYN,                      // FLAGS
+                                64240,                                // window size
+                                0,                                    // checksum
+                                0,                                    // urgent pointer
+                                LIBNET_TCP_H,                         // TCP packet length
+                                NULL,                                 // payload
+                                0,                                    // payload length
+                                context,                              // libnet context
+                                tcp_ptag                              // ptag
 
     );
 
-    libnet_build_ipv4(LIBNET_IPV4_H + LIBNET_TCP_H, // IP packet length
-                      IPTOS_LOWDELAY,               // type of service
-                      0,                            // id
-                      0,                            // fragmantation bits
-                      64,                           // ttl
-                      IPPROTO_TCP,                  // subsequent protocol
-                      0,                            // checksum
-                      IPhdr->ip_dst.s_addr,         // source ip
-                      IPhdr->ip_src.s_addr,         // destination ip
-                      NULL,                         // payload
-                      0,                            // payload length
-                      context,                      // libnet context
-                      0                             // ptag
+    ip_ptag = libnet_build_ipv4(LIBNET_IPV4_H + LIBNET_TCP_H, // IP packet length
+                                IPTOS_LOWDELAY,               // type of service
+                                0,                            // id
+                                0,                            // fragmantation bits
+                                64,                           // ttl
+                                IPPROTO_TCP,                  // subsequent protocol
+                                0,                            // checksum
+                                IPhdr->ip_dst.s_addr,         // source ip
+                                IPhdr->ip_src.s_addr,         // destination ip
+                                NULL,                         // payload
+                                0,                            // payload length
+                                context,                      // libnet context
+                                ip_ptag                       // ptag
     );
 
     if (libnet_write(context) < 0)
@@ -227,8 +228,6 @@ void process_packet(uint8_t *args, const struct pcap_pkthdr *pkt_info, const uin
         libnet_stats(context, &statistics);
         printf("Packets sent -> %lu\nErrors -> %lu\nTotal bytes -> %lu\n\n\n", statistics.packets_sent, statistics.packet_errors, statistics.bytes_written);
     }
-
-    libnet_clear_packet(context);
 }
 
 void signal_handler(int sig)
